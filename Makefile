@@ -11,3 +11,8 @@ clean:
 restart: loader.dylib
 	pkill Geometry Dash || echo 0
 	open -a GDCracked
+push:
+	git add .
+	read commessage
+	git commit -m $commessage
+	git push
