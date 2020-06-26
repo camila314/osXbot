@@ -136,7 +136,7 @@ void rout_rec(long a,double b) {
 }
 
 void rout_play(long a,double b) {
-	if(b<0.4) {
+	if(b<0.2) {
 		macro_counter = 0;
 	}
 	if(macro_counter>=arraySize) return;
