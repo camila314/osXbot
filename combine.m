@@ -20,7 +20,7 @@ typedef struct MacroType2 {
 pid_t processID;
 
 void* dispatcherObject;
-void (*increment)(void*, int);// = 0x185a20;
+void (*increment)(void*, int); // = 0x185a20;
 void (*decrement)(void*, int);// = 0x185b70;
 void *(*dispatch)(void*,int,bool);
 void *(*dispatch_og)(void*,int,bool);
