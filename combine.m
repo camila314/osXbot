@@ -175,11 +175,15 @@ void eventTapCallback(void* bru,int key,bool isdown) {
 
 			if(play_record==1 && arrayCounter<arraySize) {
 				if(key==ARROW) {
-					modifier1 = 1;
-					modifier1_keyDown = isdown;
+					if(modifier1_keyDown!=isdown) {
+						modifier1 = 1;
+						modifier1_keyDown = isdown;
+					}
 				} else if(key==SPACE) {
-					modifier2 = 1;
-					modifier2_keyDown = isdown;
+					if(modifier2_keyDown!=isdown) {
+						modifier2 = 1;
+						modifier2_keyDown = isdown;
+					}
 				}
 			}
 		} else if(isdown) {
