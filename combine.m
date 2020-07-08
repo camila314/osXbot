@@ -5,6 +5,9 @@
 
 #define SPACE 32
 #define ARROW 283
+
+#define MSIZE_T 1024
+
 extern void getFileSaveName(void (*callback)(char*));
 extern void getFileOpenName(void (*callback)(char*));
 
@@ -32,9 +35,9 @@ void* (*scheduler_update_tramp)(void*);
 
 void (*pauseGame)(long,bool);
 
-int arraySize = 612;
+int arraySize = MSIZE_T;
 int arrayCounter = 0;
-MType Macro[612];
+MType Macro[MSIZE_T];
 
 int macro_counter = 0;
 
