@@ -59,6 +59,7 @@ bool keybinds = true;
 CFMessagePortRef remotePort;
 bool attached = 0;
 
+float stop_spam_prev = 0.0;
 void speedhack(void* instance) {
 	scheduler_update_tramp(instance);
 	float* m_fDeltaTime = (float*)((intptr_t)instance+0x90);
@@ -141,12 +142,16 @@ void rout_rec(long a,double b) {
 void rout_play(long a,double b) {
 	if(b<0.2) {
 		macro_counter = 0;
+		stop_spam_prev = 0.0;
 	}
 	if(macro_counter>=arraySize) return;
 	MType currnt = Macro[macro_counter];
 	register double macroXpos = currnt.xpos;
-	if(macroXpos<=b && macroXpos!=0) {
+	if(macroXpos<=b && macroXpos!=0 && macroXpos>stop_spam_prev) {
 		dispatch_og(dispatcherObject,currnt.key,currnt.down);
+
+		stop_spam_prev = macroXpos;
+		
 		if(remotePort&&CFMessagePortIsValid(remotePort))
 			sendSelect(macro_counter);
 
