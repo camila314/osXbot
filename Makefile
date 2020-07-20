@@ -4,7 +4,7 @@ boost:
 	gcc boost.c -dynamiclib -o loader.dylib
 loader.dylib:
 	nasm -fmacho64 _unused.asm
-	gcc _unused.o combine.m -lroute alert.m -dynamiclib -o loader.dylib -framework ApplicationServices -framework Cocoa -Ofast
+	gcc _unused.o combine.m -lMKit alert.m -dynamiclib -o loader.dylib -framework ApplicationServices -framework Cocoa -Ofast
 clean:
 	rm loader.dylib
 	rm *.o

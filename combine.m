@@ -1,4 +1,4 @@
-#include <rd_route.h>
+#include <MKit.h>
 #include <ApplicationServices/ApplicationServices.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -68,6 +68,8 @@ void speedhack(void* instance) {
 
 void changeSpeed(float num) {
 	if(num==0.0) return;
+	float n = (1.0/(60.0*num));
+	writeProcessMemory(baseAddress() + 0x2EC3DC, 4, &n);
 	SPEED = num;
 }
 
@@ -296,21 +298,32 @@ void install(void) __attribute__ ((constructor));
 
 void install()
 {
-	finit();
+	//finit();
 
-	long bs = base()+0x78B60;
+	long bs = baseAddress()+0x78B60;
 	void *(*original)(long,double) = bs;
 
-	scheduler_update = base()+0x2497a0;
-	dispatch = base()+0xE8190;
-	pauseGame = base()+0x802d0;
+	scheduler_update = baseAddress()+0x2497a0;
+	dispatch = baseAddress()+0xE8190;
+	pauseGame = baseAddress()+0x802d0;
 
 	rd_route(original,routBoth,(void **)&og);
 	rd_route(dispatch,eventTapCallback,(void**)&dispatch_og);
 	rd_route(scheduler_update,speedhack,(void**)&scheduler_update_tramp);
 
-	rd_route(base()+0x185a20, inc, (void**)&increment);
-	rd_route(base()+0x185b70, dec, (void**)&decrement);
+	rd_route(baseAddress()+0x185a20, inc, (void**)&increment);
+	rd_route(baseAddress()+0x185b70, dec, (void**)&decrement);
+
+	char data[] = {0x89, 0x88, 0x88, 0x3C};
+	writeProcessMemory(baseAddress() + 0x2EC3DC, 4, &data);
+
+	char play_jump[] = {0xE9, 0xE4, 0x4A, 0x27, 0x00, 0x90};
+	writeProcessMemory(baseAddress() + 0x77900, 7, &play_jump);
+
+	char set_016[] = {0xF3, 0x0F, 0x10, 0x05, 0xeb, 0xFF, 0xFF, 0xff, 0x90, 0x55, 0x48, 0x89, 0xE5, 0x41, 0x57, 0x41, 0x56, 0x41, 0x55, 0xe9, 0x09, 0xb5, 0xd8, 0xff};
+	writeProcessMemory(baseAddress() + 0x2ec3e9, 24, &set_016);
+
+	//0x2ec3e4
 
 	initIPC();
 }
