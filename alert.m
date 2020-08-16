@@ -70,3 +70,23 @@ void getSpeed(void (*callback)(float)) {
         }
     });
 }
+
+void getFps(void (*callback)(float)) {
+    dispatch_async(dispatch_get_main_queue(), ^(void){
+        NSAlert *alert = [NSAlert alertWithMessageText: @"Fps Recording"
+                                         defaultButton:@"OK"
+                                       alternateButton:@"Cancel"
+                                           otherButton:nil
+                             informativeTextWithFormat:@""];
+
+        NSTextField *input = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 200, 24)];
+        [input setStringValue:@"60.0"];
+        [input autorelease];
+        [alert setAccessoryView:input];
+        NSInteger button = [alert runModal];
+        if (button == NSAlertDefaultReturn) {
+            [input validateEditing];
+            callback([input floatValue]);
+        }
+    });
+}

@@ -11,6 +11,8 @@
 extern void getFileSaveName(void (*callback)(char*));
 extern void getFileOpenName(void (*callback)(char*));
 
+extern void dispatchAsm();
+
 typedef struct MacroType {
 	double xpos;
 	int key;
@@ -51,6 +53,7 @@ bool modifier2_keyDown = 0;
 int play_record = 1;
 
 float SPEED = 1;
+float FPS = 60.0;
 
 bool paused = 0;
 
@@ -68,10 +71,18 @@ void speedhack(void* instance) {
 
 void changeSpeed(float num) {
 	if(num==0.0) return;
-	float n = (1.0/(60.0*num));
+	float n = (1.0/(FPS*num));
 	writeProcessMemory(baseAddress() + 0x2EC3DC, 4, &n);
 	SPEED = num;
 }
+
+void changeFps(float num) {
+	if(num==0.0) return;
+	float n = (1.0/(num*SPEED));
+	writeProcessMemory(baseAddress() + 0x2EC3DC, 4, &n);
+	FPS = num;
+}
+
 
 void saveToFile(char* fileName) {
 	//if(fileName=="") {return;}
@@ -110,8 +121,33 @@ void sendSelect(int index) {
 							 NULL,
 							 NULL);
 }
+
+void delt(double max) {
+	bool d = true;
+	for(int i=0; i<arraySize; i++) {
+		MType tmp;
+		tmp.xpos = 0;
+		tmp.down = 0;
+		tmp.key = ARROW;
+
+		if(Macro[i].xpos > max) {
+			if(d)
+				arrayCounter = 1;
+				d = false;
+			Macro[i] = tmp;
+			sendAdd(i, &tmp);
+		}
+	}
+}
+double prev_xpos = 0.0;
 void rout_rec(long a,double b) {
 	if(arrayCounter>=arraySize) return;
+
+	/*if(b>0.2 && prev_xpos>b) {
+		delt(b);
+		}
+	fprintf(tty(), "current: %lf, previous: %lf\n",b,prev_xpos);
+	prev_xpos = b;*/
 
 	if(modifier1==1) {
 		if(play_record==3) {
@@ -163,10 +199,6 @@ void rout_play(long a,double b) {
 
 }
 static int routBoth(long a,double b) {
-	if(paused) {
-		pauseGame(a,true);
-		paused = false;
-	}
 	register int ret_val = og(a,b);
 	if(play_record==1 || play_record==3) {
 		rout_rec(a,b);
@@ -197,10 +229,6 @@ void eventTapCallback(void* bru,int key,bool isdown) {
 				}
 			}
 		} else if(isdown) {
-			if(key==27) {
-				paused = true;
-				return;
-			}
 			if(key==9)
 				keybinds = !keybinds;
 			if(keybinds) {
@@ -222,6 +250,9 @@ void eventTapCallback(void* bru,int key,bool isdown) {
 						return;
 					case 67:
 						getSpeed(changeSpeed);
+						return;
+					case 70:
+						getFps(changeFps);
 						return;
 					case 83:
 						getFileSaveName(saveToFile);
@@ -308,7 +339,7 @@ void install()
 	pauseGame = baseAddress()+0x802d0;
 
 	rd_route(original,routBoth,(void **)&og);
-	rd_route(dispatch,eventTapCallback,(void**)&dispatch_og);
+	rd_route(dispatch,dispatchAsm,(void**)&dispatch_og);
 	rd_route(scheduler_update,speedhack,(void**)&scheduler_update_tramp);
 
 	rd_route(baseAddress()+0x185a20, inc, (void**)&increment);
