@@ -9,6 +9,9 @@ _get_xPosition:
 extern _baseAddress
 extern _eventTapCallback
 global _dispatchAsm
+
+extern _routBoth
+global _routAsm
 _dispatchAsm:
 	push rbp
 	mov rbp, rsp
@@ -34,5 +37,34 @@ _dispatchAsm:
 	push       rbx
 	sub        rsp, 0x18
 	mov r12d, edx
+
+	jmp rax
+
+_routAsm:
+	push rbp
+	mov rbp, rsp
+	push rdi
+	push rsi
+	push rdx
+	movss xmm10, xmm0
+	call _routBoth
+
+	call _baseAddress
+	add rax, 0x78b7a
+	
+	movss xmm0, xmm10
+	pop rdx
+	pop rsi
+	pop rdi
+	pop rbp
+
+	push       rbp                                         ; CODE XREF=_ZN9PlayLayer6updateEPvf+1599
+	mov        rbp, rsp
+	push       r14
+	push       rbx
+	sub        rsp, 0x10
+	movss      dword [rbp-0x14], xmm0
+	mov        rbx, rdi
+	cmp        byte [rbx+0x700], 0x0
 
 	jmp rax
