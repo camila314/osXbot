@@ -1,3 +1,4 @@
+%include "gdlib.asm"
 section .text
 global _get_xPosition
 _get_xPosition:
@@ -68,3 +69,14 @@ _routAsm:
 	cmp        byte [rbx+0x700], 0x0
 
 	jmp rax
+
+global _toStdStr
+_toStdStr:
+	push rbp
+	mov rbp, rsp
+	sub rsp, 0x28
+	lea rdx,[rbp-0x10]
+	relcall 0x489fc0 ; new string
+	add rsp, 0x28
+	pop rbp
+	ret

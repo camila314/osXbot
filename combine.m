@@ -14,6 +14,8 @@ extern void getFileOpenName(void (*callback)(char*));
 
 extern void dispatchAsm(void* a, int b, bool c);
 extern void routAsm();
+extern void toStdStr(void*, char const*);
+long base;
 
 typedef struct MacroType {
 	double xpos;
@@ -42,6 +44,10 @@ long scheduler_update;
 void* (*scheduler_update_tramp)(void*);
 
 void (*pauseGame)(long,bool);
+long (*sharedManager)();
+void (*pasteObjects)(void*, void*);
+void (*ogMain)(void*);
+void* (*createPlay)(void*);
 
 int arraySize = MSIZE_T;
 int arrayCounter = 0;
@@ -75,6 +81,70 @@ NSMutableArray* checkpoints;
 double practice_checkweight, practice_playerweight, practice_hiddencheckweight = 0.0f;
 bool practice_record_mode = false;
 
+bool doIPaste = false;
+
+
+// i did however make this code
+char const* getPickupString() {
+	NSString* template = @"1,1817,2,%lf,3,%d,36,1,80,%d,77,%d;";
+
+	NSMutableString* output = [@"" mutableCopy];
+	//printf("array counter is %d\n", arrayCounter);
+	for(int i=0; i<arrayCounter; i++) {
+		MType event = PracticeMode[i];
+		if(event.key != SPACE && event.key != ARROW)
+			break;
+		int itemid=1;
+		int count=-1;
+		if(event.down == true) {
+			itemid = 0;
+			count = 1;
+		}
+		printf("test: %f\n", 432.0);
+		[output appendString:[NSString stringWithFormat:template,event.xpos, 100+(50*itemid),itemid, count]];
+	}
+	printf("output is %d\n", output.length);
+	if([output length]>2) {
+		[output deleteCharactersInRange:NSMakeRange([output length]-1, 1)];
+		return [output UTF8String];
+	} else {
+		return "9";
+	}
+}
+
+void pastePickups() {
+	char const* lvlstring = getPickupString();
+
+	if(*lvlstring == '9') {
+		printf("why did you press k\n");
+		return;
+	}
+
+	printf("before the standard string\n");
+	void* stdstring;
+	toStdStr(stdstring, lvlstring);
+	printf("standard string\n");
+
+	long state = sharedManager();
+	long layer = *((long*)(state+0x188));
+	if(layer) {
+		void* editor = *((void**)(layer+0x5d8));
+		pasteObjects(editor, stdstring);
+	} else {
+		printf("you arent even in the editor lmao\n");
+	}
+
+}
+
+
+void mainLoop(void* instance) {
+	if(doIPaste) {
+		pastePickups();
+		doIPaste = false;
+	}
+	ogMain(instance);
+}
+
 void practicePrune(double pos) {
 	bool crossed = false;
 	for(int i = 0; i<arrayCounter; i++) {
@@ -92,7 +162,7 @@ void practicePrune(double pos) {
 			} else {*/
 				arrayCounter=i;
 			//}
-			//break;
+			break;
 		}
 	}
 }
@@ -181,7 +251,12 @@ void practice_toggle(void* instance, bool toggle) {
 	practice_record_mode = toggle;
 	practice_playerweight = 0;
 	practice_checkweight = 0;
-	arrayCounter = 0;
+	if(toggle)
+		arrayCounter = 0;
+}
+void* newLevel(void* inst) {
+	practice_record_mode = false;
+	return createPlay(inst);
 }
 double prev_xpos = 0.0;
 void practice_markCheckpoint(void* instance) {
@@ -378,7 +453,8 @@ void eventTapCallback(void* bru,int key,bool isdown) {
 						play_record = 3;
 						return;
 					case 75:
-						play_record = 4;
+						//play_record = 4;
+						doIPaste = true;
 						return;
 					case 67:
 						getSpeed(changeSpeed);
@@ -462,6 +538,8 @@ void install(void) __attribute__ ((constructor));
 void install()
 {
 	//finit();
+	base = baseAddress();
+	printf("test: %f\n", 432.0);
 
 	checkpoints = [[NSMutableArray alloc] init];
 	[checkpoints addObject:[NSNumber numberWithDouble:0.0]];
@@ -471,6 +549,8 @@ void install()
 	scheduler_update = baseAddress()+0x2497a0;
 	dispatch = baseAddress()+0xE8190;
 	pauseGame = baseAddress()+0x802d0;
+	sharedManager = baseAddress()+0x1c2b30;
+	pasteObjects = baseAddress()+0x232d0;
 
 	rd_route(original,routBoth,(void **)&og);
 	rd_route(dispatch,dispatchAsm,(void**)&dispatch_og);
@@ -482,6 +562,8 @@ void install()
 
 	rd_route(baseAddress()+0x185a20, inc, (void**)&increment);
 	rd_route(baseAddress()+0x185b70, dec, (void**)&decrement);
+	rd_route(baseAddress()+0x249690, mainLoop, (void**)&ogMain);
+	rd_route(baseAddress()+0x6b500, newLevel, (void**)&createPlay);
 
 	char data[] = {0x89, 0x88, 0x88, 0x3C};
 	writeProcessMemory(baseAddress() + 0x2EC3DC, 4, &data);

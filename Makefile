@@ -3,8 +3,8 @@ run: loader.dylib
 boost:
 	gcc boost.c -dynamiclib -o loader.dylib
 loader.dylib:
-	nasm -fmacho64 disp.asm
-	gcc disp.o combine.m -lMKit alert.m -dynamiclib -g -o loader.dylib -framework ApplicationServices -framework Cocoa -O0
+	nasm -fmacho64  -i/users/jakrillis/asminclude disp.asm
+	gcc disp.o combine.m -lMKit alert.m -dynamiclib -g -o loader.dylib -framework ApplicationServices -framework Cocoa -O0 -Wno-int-conversion -Wno-incompatible-pointer-types
 clean:
 	rm loader.dylib
 	rm *.o
