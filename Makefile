@@ -13,7 +13,9 @@ restart: loader.dylib
 	open -a GDCracked
 push:
 	git add .
-	git rm loader.dylib || echo 0
-	git rm *.o || echo 0
+	git rm --cached loader.dylib || echo 0
+	git rm --cached *.o || echo 0
+	git rm -r --cached osXbot.zip osXbot.app
+
 	git commit -m "$(shell bash -c 'read -p "Message: " pwd; echo $$pwd')"
 	git push
