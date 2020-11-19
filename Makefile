@@ -13,5 +13,7 @@ restart: loader.dylib
 	open -a GDCracked
 push:
 	git add .
+	git rm loader.dylib || echo 0
+	git rm *.o || echo 0
 	git commit -m "$(shell bash -c 'read -p "Message: " pwd; echo $$pwd')"
 	git push
