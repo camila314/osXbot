@@ -15,7 +15,7 @@ push:
 	git add .
 	git rm --cached loader.dylib || echo 0
 	git rm --cached *.o || echo 0
-	git rm -r --cached osXbot.zip osXbot.app
+	git rm -r --cached osXbot.zip osXbot.app *.dSYM
 
 	git commit -m "$(shell bash -c 'read -p "Message: " pwd; echo $$pwd')"
 	git push
