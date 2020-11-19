@@ -6,19 +6,16 @@
 
 #define SPACE 32
 #define ARROW 283
-
 #define MSIZE_T 1024
 
 extern void getFileSaveName(void (*callback)(char*));
 extern void getFileOpenName(void (*callback)(char*));
+extern void getSpeed(void(*)(float));
+extern void getFps(void(*)(float));
 
 extern void dispatchAsm(void* a, int b, bool c);
 extern void routAsm();
 extern void toStdStr(void*, char const*);
-
-extern void getSpeed(void(*)(float));
-extern void getFps(void(*)(float));
-int64_t base;
 
 typedef struct MacroType {
     double xpos;
@@ -26,68 +23,59 @@ typedef struct MacroType {
     bool down;
 } MType;
 typedef struct MacroType2 {
-        MType macro;
-        int index;
-    } MType2;
-pid_t processID;
+    MType macro;
+    int index;
+} MType2;
 
+int64_t base;
+pid_t processID;
 void* dispatcherObject;
-void (*increment)(void*, int);  // = 0x185a20;
-void (*decrement)(void*, int);  // = 0x185b70;
+int64_t scheduler_update;
+
+void *(*scheduler_update_tramp)(void*);
+void *(*og)(int64_t, double);
 void *(*dispatch)(void*, int, bool);
 void *(*dispatch_og)(void*, int, bool);
+void *(*createPlay)(void*);
+void (*increment)(void*, int);  // = 0x185a20;
+void (*decrement)(void*, int);  // = 0x185b70;
 void (*practice_og)(void*, bool);
 void (*practice_ogCheckpoint)(void*);
 void (*practice_ogRemove)(void*);
 void (*practice_ogDies)(void*, void*, void*);
-
-void *(*og)(int64_t, double);
-
-int64_t scheduler_update;
-void* (*scheduler_update_tramp)(void*);
-
 void (*pauseGame)(int64_t, bool);
-int64_t (*sharedManager)();
 void (*pasteObjects)(void*, void*);
 void (*ogMain)(void*);
-void* (*createPlay)(void*);
+int64_t (*sharedManager)();
+
+int macro_counter = 0;
+int play_record = 1;
 
 int arraySize = MSIZE_T;
 int arrayCounter = 0;
 MType Macro[MSIZE_T];
 MType PracticeMode[MSIZE_T];
 
-int macro_counter = 0;
-
 bool modifier1 = 0;
 bool modifier2 = 0;
-
 bool modifier1_keyDown = 0;
 bool modifier2_keyDown = 0;
+bool paused = 0;
+bool keybinds = true;
+bool attached = 0;
+bool doIPaste = false;
+bool practice_record_mode = false;
 
-
-int play_record = 1;
 
 float SPEED = 1;
 float FPS = 60.0;
-
-bool paused = 0;
-
-bool keybinds = true;
+double practice_playerweight, practice_hiddencheckweight = 0.0f;
+float stop_spam_prev = 0.0;
+double prev_xpos = 0.0;
 
 CFMessagePortRef remotePort;
-bool attached = 0;
-
-float stop_spam_prev = 0.0;
-
 NSMutableArray* checkpoints;
-double practice_playerweight, practice_hiddencheckweight = 0.0f;
-bool practice_record_mode = false;
 
-bool doIPaste = false;
-
-
-// i did however make this code
 char const* getPickupString() {
     NSString* template = @"1,1817,2,%lf,3,%d,36,1,80,%d,77,%d;";
 
@@ -177,17 +165,18 @@ void changeFps(float num) {
     FPS = num;
 }
 
-
 void saveToFile(char* fileName) {
     FILE* saveLocation = fopen(fileName, "wb");
     fwrite(Macro, sizeof(MType), arraySize, saveLocation);
     fclose(saveLocation);
 }
+
 void loadFromFile(char* fileName) {
     FILE* saveLocation = fopen(fileName, "rb");
     fread(Macro, sizeof(MType), arraySize, saveLocation);
     fclose(saveLocation);
 }
+
 void sendAdd(int index, MType* mcro) {
     MType2 tmp;
     tmp.index = index;
@@ -201,6 +190,7 @@ void sendAdd(int index, MType* mcro) {
                              NULL,
                              NULL);
 }
+
 void sendSelect(int index) {
     MType2 tmp;
     tmp.index = index;
@@ -245,7 +235,7 @@ void* newLevel(void* inst) {
     practice_record_mode = false;
     return createPlay(inst);
 }
-double prev_xpos = 0.0;
+
 void practice_markCheckpoint(void* instance) {
     practice_ogCheckpoint(instance);
 
@@ -331,7 +321,6 @@ void rout_rec(int64_t a, double b) {
     modifier1 = 0;
     modifier2 = 0;
 }
-
 
 void rout_play(int64_t a, double b) {
     if (b < 0.02) {
