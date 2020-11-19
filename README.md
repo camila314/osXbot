@@ -3,12 +3,14 @@ Geometry Dash macro recorder built for MacOSX
 # files and what they do:
 combine.m: main engine
 
-combine_old.m: old files, dont use
+combine_old.m: old code, dont use
 
-alert.m: gui stuff
+alert.m: gui-related stuff
 
-\_unused.asm: unneeded but has a function for calculating x position
+disp.asm: low level assembly functions used to make hooking smoother
 
 Makefile: used to build
 
 rd_route: hooking library
+
+xbot_to_pickup: python scripts to convert xbot macros to pickup and back
