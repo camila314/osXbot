@@ -1,4 +1,4 @@
-#include <MKit.h>
+#include "MKit/Mkit.h"
 #include <ApplicationServices/ApplicationServices.h>
 #include <Foundation/Foundation.h>
 #include <stdlib.h>
@@ -438,7 +438,7 @@ static CFDataRef Callback(CFMessagePortRef port,
         attached = true;
         remotePort = CFMessagePortCreateRemote(0, CFSTR("localMacro"));
     }
-    return CFDataCreate(NULL, (unsigned)"ok", 3);;
+    return CFDataCreate(NULL, "ok", 3);
 }
 
 void initIPC() {

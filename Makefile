@@ -2,12 +2,21 @@ run: loader.dylib
 	sudo osxinj "Geometry Dash" loader.dylib
 boost:
 	gcc boost.c -dynamiclib -o loader.dylib
-loader.dylib:
+loader.dylib: MKit.a
 	nasm -fmacho64  -i/users/jakrillis/asminclude disp.asm
-	gcc disp.o combine.m -lMKit alert.m -dynamiclib -g -o loader.dylib -framework ApplicationServices -framework Cocoa -O0 -Wno-int-conversion -Wno-incompatible-pointer-types
+	gcc disp.o combine.m MKit.a click.m alert.m -dynamiclib -g -o loader.dylib -framework ApplicationServices -framework Cocoa -framework AVFoundation -O0 -Wno-int-conversion -Wno-incompatible-pointer-types
+
+MKit.a: rd_route.o MKit.o
+	ar rcs $@ $^ $<
+
+rd_route.o: MKit/rd_route.c MKit/rd_route.h
+	gcc -c -o $@ $<
+
+MKit.o: MKit/MKit.c MKit/MKit.h
+	gcc -c -o $@ $<
+
 clean:
-	rm loader.dylib
-	rm *.o
+	rm *.o loader.dylib
 restart: loader.dylib
 	pkill Geometry Dash || echo 0
 	open -a GDCracked
