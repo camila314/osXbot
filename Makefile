@@ -4,7 +4,7 @@ boost:
 	gcc boost.c -dynamiclib -o loader.dylib
 loader.dylib: MKit.a
 	nasm -fmacho64  -i/users/jakrillis/asminclude disp.asm
-	gcc disp.o combine.m MKit.a click.m alert.m -dynamiclib -g -o loader.dylib -framework ApplicationServices -framework Cocoa -framework AVFoundation -O0 -Wno-int-conversion -Wno-incompatible-pointer-types
+	gcc disp.o combine.m MKit.a alert.m -dynamiclib -g -o loader.dylib -framework ApplicationServices -framework Cocoa -framework AVFoundation -O0 -Wno-int-conversion -Wno-incompatible-pointer-types
 
 MKit.a: rd_route.o MKit.o
 	ar rcs $@ $^ $<
