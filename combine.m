@@ -1,6 +1,7 @@
-#include "MKit/Mkit.h"
+#include "MKit/MKit.h"
 #include <ApplicationServices/ApplicationServices.h>
 #include <Foundation/Foundation.h>
+#include <AppKit/AppKit.h>
 #include <stdlib.h>
 #include <stdbool.h>
 
@@ -10,6 +11,8 @@
 
 extern void getFileSaveName(void (*callback)(char*));
 extern void getFileOpenName(void (*callback)(char*));
+extern void getWavFile(void (*callback)(char*));
+
 extern void getSpeed(void(*)(float));
 extern void getFps(void(*)(float));
 
@@ -46,6 +49,7 @@ void (*practice_ogDies)(void*, void*, void*);
 void (*pauseGame)(int64_t, bool);
 void (*pasteObjects)(void*, void*);
 void (*ogMain)(void*);
+void (*playDeathEffect)(void*);
 int64_t (*sharedManager)();
 
 int macro_counter = 0;
@@ -65,6 +69,10 @@ bool keybinds = true;
 bool attached = 0;
 bool doIPaste = false;
 bool practice_record_mode = false;
+
+bool audioEnabled = false;
+NSString* audioFileLocation;
+NSSound* sharedPlayer;
 
 
 float SPEED = 1;
@@ -177,6 +185,12 @@ void loadFromFile(char* fileName) {
     fclose(saveLocation);
 }
 
+void loadWav(char* fileName) {
+    audioEnabled = true;
+    audioFileLocation = [[NSString stringWithUTF8String:fileName] retain];
+    NSLog(@"ight so its %@",audioFileLocation);
+}
+
 void sendAdd(int index, MType* mcro) {
     MType2 tmp;
     tmp.index = index;
@@ -262,6 +276,22 @@ void practice_playerDies(void* instance, void* player, void* game) {
     }
 }
 
+void itsPaused(int64_t a, bool b) {
+    printf("%d\n", b);
+    pauseGame(a,b);
+    if (audioEnabled && sharedPlayer && sharedPlayer.playing) {
+        NSLog(@"we aren't playing anymore");
+        [sharedPlayer stop];
+    }
+}
+void audioDie(void* a) {
+    playDeathEffect(a);
+    if (audioEnabled && sharedPlayer && sharedPlayer.playing) {
+        [sharedPlayer stop];
+        NSLog(@"we aren't playing anymore");
+    }
+}
+
 void rout_rec(int64_t a, double b) {
     if (arrayCounter >= arraySize) return;
 
@@ -323,9 +353,20 @@ void rout_rec(int64_t a, double b) {
 }
 
 void rout_play(int64_t a, double b) {
-    if (b < 0.02) {
+    if (b*3 <= 1./FPS) {
         macro_counter = 0;
         stop_spam_prev = 0.0;
+        
+        if (audioEnabled) {
+            if (sharedPlayer) {
+                [sharedPlayer stop];
+                [sharedPlayer release];
+            }
+            sharedPlayer = [[[NSSound alloc] initWithContentsOfFile:audioFileLocation byReference:NO] retain];
+            sharedPlayer.currentTime = 0.16;
+            [sharedPlayer play];
+            NSLog(@"we are playing: %d",sharedPlayer.playing);
+        }
     }
     if (macro_counter >= arraySize) return;
     MType currnt = Macro[macro_counter];
@@ -400,6 +441,12 @@ void eventTapCallback(void* inst, int key, bool isdown) {
                     case 76:
                         getFileOpenName(loadFromFile);
                         return;
+                    case 77:
+                        audioEnabled = false;
+                        return;
+                    case 84:
+                        getWavFile(loadWav);
+                        return;
                     default:
                         return;
                 }
@@ -472,13 +519,15 @@ void install() {
 
     scheduler_update = baseAddress()+0x2497a0;
     dispatch = baseAddress()+0xE8190;
-    pauseGame = baseAddress()+0x802d0;
     sharedManager = baseAddress()+0x1c2b30;
     pasteObjects = baseAddress()+0x232d0;
 
     rd_route(original, routBoth, (void **)&og);
     rd_route(dispatch, dispatchAsm, (void**)&dispatch_og);
     rd_route(scheduler_update,speedhack, (void**)&scheduler_update_tramp);
+    rd_route(baseAddress()+0x802d0, itsPaused, (void**)&pauseGame);
+    rd_route(baseAddress()+0x225930, audioDie, (void**)playDeathEffect);
+
     rd_route(baseAddress()+0x7f9e0, practice_toggle, (void**)&practice_og);
     rd_route(baseAddress()+0x7ef60, practice_markCheckpoint, (void**)&practice_ogCheckpoint);
     rd_route(baseAddress()+0x7f870, practice_removeCheckpoint, (void**)&practice_ogRemove);

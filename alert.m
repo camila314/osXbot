@@ -51,6 +51,32 @@ void getFileOpenName(void (*callback)(char*)) {
         }
     });
 }
+void getWavFile(void (*callback)(char*)) {
+    dispatch_async(dispatch_get_main_queue(), ^(void){
+        NSOpenPanel *panel = [NSOpenPanel openPanel];
+        NSString *fileName=@"";
+        [panel setCanChooseFiles:YES];
+        [panel setAllowsMultipleSelection:NO];
+        [panel setCanChooseDirectories:NO];
+        [panel setAllowedFileTypes:@[@"wav"]];
+
+        NSInteger result = [panel runModal];
+        NSError *error = nil;
+
+        if (result == NSModalResponseOK) {     
+            ////////////////////////////////////////////
+            NSString *path0 = [[panel URL] path];
+
+            callback([path0 UTF8String]);
+            ////////////////////////////////////////////
+
+            if (error) {
+                [NSApp presentError:error];
+            }
+        }
+    });
+}
+
 void getSpeed(void (*callback)(float)) {
     dispatch_async(dispatch_get_main_queue(), ^(void){
         NSAlert *alert = [NSAlert alertWithMessageText: @"Change Speed"
