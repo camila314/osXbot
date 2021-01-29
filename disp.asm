@@ -75,7 +75,7 @@ _toStdStr:
 	push rbp
 	mov rbp, rsp
 	sub rsp, 0x28
-	lea rdx,[rbp-0x10]
+	lea rdx,[rsp-0x10]
 	relcall 0x489fc0 ; new string
 	add rsp, 0x28
 	pop rbp

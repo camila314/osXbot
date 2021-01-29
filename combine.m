@@ -7,7 +7,10 @@
 
 #define SPACE 32
 #define ARROW 283
-#define MSIZE_T 1024
+#define MSIZE_T 2048
+
+#define CHK_MAKE(p) [NSValue valueWithBytes:&p objCType:@encode(Checkpoint)]
+#define CHK_GET(p, o) [p getValue:&o]
 
 extern void getFileSaveName(void (*callback)(char*));
 extern void getFileOpenName(void (*callback)(char*));
@@ -30,6 +33,15 @@ typedef struct MacroType2 {
     int index;
 } MType2;
 
+typedef struct Checkpoint {
+    float xpos;
+    float rotation;
+    double accel;
+
+    double accel2;
+    float rotation2;
+} Checkpoint;
+
 int64_t base;
 pid_t processID;
 void* dispatcherObject;
@@ -40,6 +52,7 @@ void *(*og)(int64_t, double);
 void *(*dispatch)(void*, int, bool);
 void *(*dispatch_og)(void*, int, bool);
 void *(*createPlay)(void*);
+void* (*editorInit)(void*, float);
 void (*increment)(void*, int);  // = 0x185a20;
 void (*decrement)(void*, int);  // = 0x185b70;
 void (*practice_og)(void*, bool);
@@ -50,6 +63,10 @@ void (*pauseGame)(int64_t, bool);
 void (*pasteObjects)(void*, void*);
 void (*ogMain)(void*);
 void (*playDeathEffect)(void*);
+void (*ogKeyDown)(void*, int);
+void (*ogKeyUp)(void*, int);
+void (*basePush)(void*, int, bool);
+void (*baseRelease)(void*, int, bool);
 int64_t (*sharedManager)();
 
 int macro_counter = 0;
@@ -83,6 +100,10 @@ double prev_xpos = 0.0;
 
 CFMessagePortRef remotePort;
 NSMutableArray* checkpoints;
+
+void* editorLock(void* inst, float delta) {
+    return editorInit(inst, 1./(FPS*SPEED));
+}
 
 char const* getPickupString() {
     NSString* template = @"1,1817,2,%lf,3,%d,36,1,80,%d,77,%d;";
@@ -120,15 +141,15 @@ void pastePickups() {
     }
 
     printf("before the standard string\n");
-    void* stdstring = 0;
-    toStdStr(stdstring, lvlstring);
+    int64_t stdstring = 0;
+    toStdStr((void*)&stdstring, lvlstring);
     printf("standard string\n");
 
     int64_t state = sharedManager();
     int64_t layer = *((int64_t*)(state+0x188));
     if (layer) {
         void* editor = *((void**)(layer+0x5d8));
-        pasteObjects(editor, stdstring);
+        pasteObjects(editor, (void*)&stdstring);
     } else {
         printf("you arent even in the editor lmao\n");
     }
@@ -254,7 +275,19 @@ void practice_markCheckpoint(void* instance) {
     practice_ogCheckpoint(instance);
 
     if (prev_xpos != 0) {
-        [checkpoints addObject:[NSNumber numberWithDouble:prev_xpos]];
+        float rota1, acc1, rota2, acc2;
+        int64_t playob1 = *(int64_t*)(instance + 0x380);
+        int64_t playob2 = *(int64_t*)(instance + 0x388);
+        if (playob1) {
+            rota1 = *(float*)(playob1 + 0x24);
+            acc1 = *(double*)(playob1 + 0x760);
+        }
+        if (playob2) {
+            rota2 = *(float*)(playob2 + 0x24);
+            acc2 = *(double*)(playob2 + 0x760);
+        }
+        Checkpoint ch = {prev_xpos, rota1, acc1, rota2, acc2};
+        [checkpoints addObject:CHK_MAKE(ch)];
         practice_hiddencheckweight = prev_xpos;
 
 
@@ -264,7 +297,9 @@ void practice_markCheckpoint(void* instance) {
 void practice_removeCheckpoint(void* instance) {
     practice_ogRemove(instance);
     [checkpoints removeLastObject];
-    practice_hiddencheckweight = [[checkpoints lastObject] doubleValue];
+    Checkpoint ch;
+    CHK_GET([checkpoints lastObject], ch);
+    practice_hiddencheckweight = ch.xpos;
     printf("removed checkweight. weight: %lf\n", practice_hiddencheckweight);
 }
 void practice_playerDies(void* instance, void* player, void* game) {
@@ -299,10 +334,28 @@ void rout_rec(int64_t a, double b) {
     if (prev_xpos == 0.0 && practice_record_mode) {
         printf("we at 0,  checkweight is %lf\n", practice_hiddencheckweight);
         practicePrune(practice_hiddencheckweight);
+        if ([checkpoints count] > 0) {
+            int64_t playobj1 = *((int64_t*)(a+0x380));
+            int64_t playobj2 = *((int64_t*)(a+0x388));
+            
+            Checkpoint ch;
+            CHK_GET([checkpoints lastObject], ch);
+            if (!playobj1) return;
+            *((double*)(playobj1 + 0x760)) = ch.accel;
+            *((float*)(playobj1 + 0x7c8)) = ch.xpos;
+            *((float*)(playobj1 + 0x24)) = ch.rotation;
+            *((float*)(playobj1 + 0x28)) = ch.rotation;
+            if (!playobj2) return;
+            *((float*)(playobj2 + 0x7c8)) = ch.xpos;
+            *((double*)(playobj2 + 0x760)) = ch.accel2;
+            *((float*)(playobj2 + 0x24)) = ch.rotation2;
+            *((float*)(playobj2 + 0x28)) = ch.rotation2;
+        }
     }
 
     if (practice_record_mode) {
         int64_t playobj = *((int64_t*)(a+0x380));
+
         prev_xpos = *((float*)(playobj+0x7c8));
     } else {
         prev_xpos = b;
@@ -334,7 +387,7 @@ void rout_rec(int64_t a, double b) {
             MType tmp;
             tmp.xpos = b;
             tmp.key = SPACE;
-            tmp.down = modifier1_keyDown;
+            tmp.down = modifier2_keyDown;
             Macro[arrayCounter] = tmp;
             if (remotePort && CFMessagePortIsValid(remotePort))
                 sendAdd(arrayCounter, &tmp);
@@ -343,7 +396,7 @@ void rout_rec(int64_t a, double b) {
             double xpos = prev_xpos;
             tmp.xpos = b;
             tmp.key = SPACE;
-            tmp.down = modifier1_keyDown;
+            tmp.down = modifier2_keyDown;
             PracticeMode[arrayCounter] = tmp;
         }
         ++arrayCounter;
@@ -458,20 +511,48 @@ void eventTapCallback(void* inst, int key, bool isdown) {
 
 void inc(void* a, int b) {
     if (play_record == 3) {
-        dispatch_og(dispatcherObject, 32, 1);
-        modifier1 = 1;
-        modifier1_keyDown = 1;
+        if (b < 500) {
+            dispatch_og(dispatcherObject, 32, 1);
+            modifier2 = 1;
+            modifier2_keyDown = 1;
+        } else {
+            dispatch_og(dispatcherObject, 283, 1);
+            modifier1 = 1;
+            modifier1_keyDown = 1;
+        }
     }
     increment(a, b);
 }
 
 void dec(void* a, int b) {
     if (play_record == 3) {
-        dispatch_og(dispatcherObject, 32, 0);
-        modifier1 = 1;
-        modifier1_keyDown = 0;
+        if (b < 500) {
+            dispatch_og(dispatcherObject, 32, 0);
+            modifier2 = 1;
+            modifier2_keyDown = 0;
+        } else {
+            dispatch_og(dispatcherObject, 283, 0);
+            modifier1 = 1;
+            modifier1_keyDown = 0;
+        }
     }
     decrement(a, b);
+}
+
+void editorKeyDown(long inst, int key) {
+    if(key==38) {
+        void* lay = *(void**)(inst+0x408);
+        basePush(lay, 1, false);
+    }
+    ogKeyDown((void*)inst, key);
+}
+
+void editorKeyUp(long inst, int key) {
+    if(key==38) {
+        void* lay = *(void**)(inst+0x2d0);
+        baseRelease(lay, 1, false);
+    }
+    ogKeyUp((void*)inst, key);
 }
 
 // *INTERPROCESS COMMUNICATION ZONE*
@@ -521,8 +602,11 @@ void install() {
     dispatch = baseAddress()+0xE8190;
     sharedManager = baseAddress()+0x1c2b30;
     pasteObjects = baseAddress()+0x232d0;
+    basePush = baseAddress()+0xb9920;
+    baseRelease = baseAddress()+0xb9a00;
 
     rd_route(original, routBoth, (void **)&og);
+    rd_route(baseAddress()+0xa1b70, editorLock, (void**)&editorInit);
     rd_route(dispatch, dispatchAsm, (void**)&dispatch_og);
     rd_route(scheduler_update,speedhack, (void**)&scheduler_update_tramp);
     rd_route(baseAddress()+0x802d0, itsPaused, (void**)&pauseGame);
@@ -533,10 +617,13 @@ void install() {
     rd_route(baseAddress()+0x7f870, practice_removeCheckpoint, (void**)&practice_ogRemove);
     rd_route(baseAddress()+0x7ab80, practice_playerDies, (void**)&practice_ogDies);
 
+
     rd_route(baseAddress()+0x185a20, inc, (void**)&increment);
     rd_route(baseAddress()+0x185b70, dec, (void**)&decrement);
     rd_route(baseAddress()+0x249690, mainLoop, (void**)&ogMain);
     rd_route(baseAddress()+0x6b500, newLevel, (void**)&createPlay);
+    rd_route(baseAddress()+0x30790, editorKeyDown, (void**)&ogKeyDown);
+    rd_route(baseAddress()+0x31310, editorKeyUp, (void**)&ogKeyUp);
 
     char data[] = {0x89, 0x88, 0x88, 0x3C};
     writeProcessMemory(baseAddress() + 0x2EC3DC, 4, &data);
